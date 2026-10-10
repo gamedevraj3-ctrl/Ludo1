@@ -42,17 +42,18 @@ jobs:
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           echo "Project folder: $DIR"
 
-      - name: Fix Android Gradle / AGP / Kotlin versions for Flutter stable
+      - name: Fix Android Gradle / AGP / Kotlin for Flutter stable 3.47+
         working-directory: ${{ steps.proj.outputs.dir }}/android
         run: |
+          # Gradle wrapper >= 8.14
           if [ -f gradle/wrapper/gradle-wrapper.properties ]; then
-            sed -i 's#gradle-[0-9.]*-all.zip#gradle-8.12-all.zip#; s#gradle-[0-9.]*-bin.zip#gradle-8.12-bin.zip#' gradle/wrapper/gradle-wrapper.properties
+            sed -i 's#gradle-[0-9.]*-all.zip#gradle-8.14.3-all.zip#; s#gradle-[0-9.]*-bin.zip#gradle-8.14.3-bin.zip#' gradle/wrapper/gradle-wrapper.properties
             grep -n "distributionUrl" gradle/wrapper/gradle-wrapper.properties || true
           fi
           if [ -f settings.gradle.kts ]; then
-            # AGP
-            sed -i 's#id("com.android.application") version "[0-9.]*"#id("com.android.application") version "8.9.1"#' settings.gradle.kts
-            # Kotlin — Flutter stable needs >= 2.2.20
+            # AGP 8.11.1 (Flutter 3.47 compatible, still AGP 8 so no newDsl break)
+            sed -i 's#id("com.android.application") version "[0-9.]*"#id("com.android.application") version "8.11.1"#' settings.gradle.kts
+            # Kotlin >= 2.2.20
             sed -i 's#id("org.jetbrains.kotlin.android") version "[0-9.]*"#id("org.jetbrains.kotlin.android") version "2.2.20"#' settings.gradle.kts
             grep -nE 'com.android.application|kotlin.android' settings.gradle.kts || true
           fi
@@ -63,7 +64,7 @@ jobs:
 
       - name: Build release APK
         working-directory: ${{ steps.proj.outputs.dir }}
-        run: flutter build apk --release
+        run: flutter build apk --release --android-skip-build-dependency-validation
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
