@@ -44,6 +44,9 @@ jobs:
           DIR=$(dirname "$P")
           echo "dir=$DIR" >> "$GITHUB_OUTPUT"
           echo "Project folder: $DIR"
+          # Ensure characters folder exists (empty OK — assets import later via MT Manager)
+          mkdir -p "$DIR/assets/characters"
+          echo "Character PNGs count: $(find "$DIR/assets/characters" -name '*.png' 2>/dev/null | wc -l)"
 
       - name: Fix Android Gradle / AGP / Kotlin for Flutter stable 3.47+
         working-directory: ${{ steps.proj.outputs.dir }}/android
@@ -62,28 +65,27 @@ jobs:
         working-directory: ${{ steps.proj.outputs.dir }}
         run: flutter pub get
 
-      - name: Build release APK (arm64 + universal)
+      - name: Build arm64-v8a release APK
         working-directory: ${{ steps.proj.outputs.dir }}
         run: |
-          flutter build apk --release --android-skip-build-dependency-validation
-          flutter build apk --release --split-per-abi --android-skip-build-dependency-validation
+          flutter build apk --release --split-per-abi --target-platform android-arm64 --android-skip-build-dependency-validation
 
-      - name: Verify APK integrity
+      - name: Verify and package APK
         working-directory: ${{ steps.proj.outputs.dir }}
         run: |
           APK_DIR=build/app/outputs/flutter-apk
           ls -lh "$APK_DIR"
-          for f in "$APK_DIR"/*.apk; do
-            echo "Testing $f ..."
-            unzip -t "$f" > /tmp/apk_test.txt 2>&1 || { cat /tmp/apk_test.txt; exit 1; }
-            echo "OK: $f"
-          done
-          # Prefer arm64 for phones; fall back to universal
-          if [ -f "$APK_DIR/app-arm64-v8a-release.apk" ]; then
-            cp "$APK_DIR/app-arm64-v8a-release.apk" "$GITHUB_WORKSPACE/LudoRush.apk"
-          else
-            cp "$APK_DIR/app-release.apk" "$GITHUB_WORKSPACE/LudoRush.apk"
+          APK="$APK_DIR/app-arm64-v8a-release.apk"
+          if [ ! -f "$APK" ]; then
+            APK="$APK_DIR/app-release.apk"
           fi
+          if [ ! -f "$APK" ]; then
+            echo "APK nahi mili"
+            find build -name "*.apk" 2>/dev/null || true
+            exit 1
+          fi
+          unzip -t "$APK" > /tmp/apk_test.txt 2>&1 || { cat /tmp/apk_test.txt; exit 1; }
+          cp "$APK" "$GITHUB_WORKSPACE/LudoRush.apk"
           ls -lh "$GITHUB_WORKSPACE/LudoRush.apk"
           file "$GITHUB_WORKSPACE/LudoRush.apk"
 
@@ -99,8 +101,10 @@ jobs:
           tag_name: v1.0.${{ github.run_number }}
           name: Ludo Rush APK v1.0.${{ github.run_number }}
           body: |
-            Release build from GitHub Actions.
-            Install **LudoRush.apk** directly (do not install from inside a zip).
+            arm64-v8a release build.
+            Install **LudoRush.apk** directly (ZIP se mat install karo).
+            Characters baad me MT Manager se import kar sakte ho:
+            `assets/flutter_assets/assets/characters/`
           files: LudoRush.apk
           make_latest: true
         env:
